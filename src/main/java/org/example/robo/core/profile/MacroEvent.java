@@ -9,7 +9,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = "eventType")
 @JsonSubTypes({
         @JsonSubTypes.Type(value = MouseMoveEvent.class, name = "move"),
-        @JsonSubTypes.Type(value = MouseClickEvent.class, name = "click")
+        @JsonSubTypes.Type(value = MouseClickEvent.class, name = "click"),
+        @JsonSubTypes.Type(value = WebRecordingStep.class, name = "web_step")
 })
 public abstract class MacroEvent {
     private long timestampMs; // Millisekunden seit Start des Macros

@@ -7,23 +7,24 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Implementation des KeyboardListener Interfaces.
- * Vereinfachte Version für MVP - wird später mit globalen Hotkeys erweitert.
- *
- * Hinweis: Für vollständige globale Hotkey-Unterstützung auf macOS wird
- * JNativeHook oder native JNI/JNA Integration erforderlich.
+ * Globale Hotkeys via macOS CGEventTap – funktioniert unabhängig vom App-Fokus.
  */
 public class KeyboardListenerImpl implements KeyboardListener {
     private static final Logger logger = LoggerFactory.getLogger(KeyboardListenerImpl.class);
 
     private final Map<Integer, HotkeyAction> hotkeyMap;
     private final List<KeyboardEventListener> listeners;
+    private final GlobalKeyboardHook globalHook = new GlobalKeyboardHook();
     private volatile boolean isListening = false;
     private volatile boolean isRecording = false;
     private HotkeyRecordingCallback recordingCallback;
-    private java.util.Timer recordingTimer;
+    private ScheduledExecutorService recordingTimer;
 
     /**
      * Erstellt eine neue KeyboardListener Instanz.
@@ -68,28 +69,28 @@ public class KeyboardListenerImpl implements KeyboardListener {
             logger.debug("Keyboard listener already running");
             return;
         }
-
-        try {
-            isListening = true;
-            logger.info("Global keyboard listener started (MVP Mode - limited functionality)");
-            logger.warn("For full hotkey support, please configure hotkeys in application settings");
-        } catch (Exception e) {
-            logger.error("Error starting keyboard listener", e);
-        }
+        isListening = true;
+        globalHook.start(this::onMacOSKeyDown);
     }
 
     @Override
     public void stopListening() {
-        if (!isListening) {
-            logger.debug("Keyboard listener already stopped");
-            return;
-        }
+        if (!isListening) return;
+        isListening = false;
+        globalHook.stop();
+    }
 
-        try {
-            isListening = false;
-            logger.info("Global keyboard listener stopped");
-        } catch (Exception e) {
-            logger.error("Error stopping keyboard listener", e);
+    /**
+     * Wird vom CGEventTap mit macOS-VK-Codes aufgerufen (fokusunabhängig).
+     */
+    private void onMacOSKeyDown(int macOSKeyCode) {
+        HotkeyAction action = hotkeyMap.get(macOSKeyCode);
+        if (action != null) {
+            logger.debug("Hotkey ausgelöst: code={} -> {}", macOSKeyCode, action);
+            notifyListeners(l -> l.onHotkeyAction(action));
+        }
+        if (isRecording) {
+            onKeyPressed(macOSKeyCode, 0);
         }
     }
 
@@ -148,17 +149,17 @@ public class KeyboardListenerImpl implements KeyboardListener {
         recordingCallback = callback;
         logger.info("Hotkey recording started (timeout: {} ms)", timeout);
 
-        // Starte Timeout-Timer
-        recordingTimer = new java.util.Timer("HotkeyRecordingTimer", true);
-        recordingTimer.schedule(new java.util.TimerTask() {
-            @Override
-            public void run() {
-                stopRecordingHotkey();
-                if (recordingCallback != null) {
-                    recordingCallback.onHotkeyRecorded(null); // null = Timeout
-                }
+        recordingTimer = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "HotkeyRecordingTimer");
+            t.setDaemon(true);
+            return t;
+        });
+        recordingTimer.schedule(() -> {
+            stopRecordingHotkey();
+            if (recordingCallback != null) {
+                recordingCallback.onHotkeyRecorded(null); // null = Timeout
             }
-        }, timeout);
+        }, timeout, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -169,7 +170,7 @@ public class KeyboardListenerImpl implements KeyboardListener {
 
         isRecording = false;
         if (recordingTimer != null) {
-            recordingTimer.cancel();
+            recordingTimer.shutdown();
             recordingTimer = null;
         }
         recordingCallback = null;

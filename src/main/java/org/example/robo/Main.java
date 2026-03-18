@@ -1,7 +1,10 @@
 package org.example.robo;
 
 import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.scene.control.Alert;
 import javafx.stage.Stage;
+import org.example.robo.core.engine.NativeMacOSAPI;
 import org.example.robo.core.profile.ClickProfile;
 import org.example.robo.service.ApplicationService;
 import org.example.robo.ui.MainWindowFX;
@@ -12,7 +15,7 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 
 /**
- * Haupteinstiegspunkt für die Click Roboter Anwendung (JavaFX).
+ * Haupteinstiegspunkt für die MACRobo Anwendung (JavaFX).
  */
 public class Main extends Application {
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
@@ -21,7 +24,7 @@ public class Main extends Application {
 
     public static void main(String[] args) {
         try {
-            logger.info("=== Click Roboter Application Starting ===");
+            logger.info("=== MACRobo Application Starting ===");
 
             // Initialisiere Application Service (Singleton)
             appService = ApplicationService.getInstance();
@@ -67,7 +70,7 @@ public class Main extends Application {
                     appService.getKeyboardListener());
             uiController.setMainWindow(mainWindow);
 
-            logger.info("=== Click Roboter Application Started ===");
+            logger.info("=== MACRobo Application Started ===");
             logger.info("Hotkeys configured:");
             logger.info("  F6          = Start/Stop");
             logger.info("  F7          = Emergency Stop");
@@ -80,16 +83,24 @@ public class Main extends Application {
     }
 
     /**
-     * Überprüft und benachrichtig den Benutzer über Accessibility-Anforderungen.
+     * Überprüft Accessibility-Berechtigung und zeigt Warnung falls sie fehlt.
      */
     private static void checkAccessibility() {
-        try {
-            // Vereinfachte Prüfung - auf echten macOS wird dies durch NativeHook geprüft
-            logger.info("Accessibility check: If you see this, the app may need Accessibility permission");
-            logger.info("If hotkeys don't work, please grant Accessibility permission in:");
-            logger.info("  System Preferences > Security & Privacy > Accessibility > Click Roboter");
-        } catch (Exception e) {
-            logger.warn("Could not verify accessibility permission", e);
+        if (!NativeMacOSAPI.hasAccessibilityPermission()) {
+            logger.warn("Accessibility permission missing — mouse clicks will not work");
+            Platform.runLater(() -> {
+                Alert alert = new Alert(Alert.AlertType.WARNING);
+                alert.setTitle("Bedienungshilfen-Berechtigung fehlt");
+                alert.setHeaderText("Mausklicks werden nicht ausgeführt");
+                alert.setContentText(
+                    "Bitte erteile die Berechtigung in:\n\n" +
+                    "Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen\n\n" +
+                    "Füge dort den Terminal (oder die App) hinzu und starte die App neu."
+                );
+                alert.showAndWait();
+            });
+        } else {
+            logger.info("Accessibility permission: granted");
         }
     }
 

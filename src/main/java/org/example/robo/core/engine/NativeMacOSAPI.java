@@ -50,6 +50,11 @@ public class NativeMacOSAPI {
         protected List<String> getFieldOrder() {
             return Arrays.asList("x", "y");
         }
+
+        public static class ByValue extends CGPoint implements Structure.ByValue {
+            public ByValue() {}
+            public ByValue(double x, double y) { super(x, y); }
+        }
     }
 
     /**
@@ -59,10 +64,15 @@ public class NativeMacOSAPI {
         CoreGraphics INSTANCE = Native.load("CoreGraphics", CoreGraphics.class);
 
         Pointer CGEventCreate(Pointer source);
-        Pointer CGEventCreateMouseEvent(Pointer source, int type, CGPoint location, int button);
+        Pointer CGEventCreateMouseEvent(Pointer source, int type, CGPoint.ByValue location, int button);
         void CGEventPost(int tap, Pointer event);
-        CGPoint CGEventGetLocation(Pointer event);
+        CGPoint.ByValue CGEventGetLocation(Pointer event);
         void CFRelease(Pointer cf);
+    }
+
+    private interface ApplicationServices extends Library {
+        ApplicationServices INSTANCE = Native.load("ApplicationServices", ApplicationServices.class);
+        boolean AXIsProcessTrusted();
     }
 
     /**
@@ -76,7 +86,7 @@ public class NativeMacOSAPI {
         try {
             logger.debug("Performing {} click at position ({}, {})", clickType, x, y);
 
-            CGPoint location = new CGPoint(x, y);
+            CGPoint.ByValue location = new CGPoint.ByValue(x, y);
 
             switch (clickType) {
                 case LEFT -> performLeftClick(location);
@@ -102,7 +112,7 @@ public class NativeMacOSAPI {
     public static void performMouseMove(int x, int y) {
         try {
             logger.debug("Moving mouse to ({}, {})", x, y);
-            CGPoint location = new CGPoint(x, y);
+            CGPoint.ByValue location = new CGPoint.ByValue(x, y);
             Pointer move = CoreGraphics.INSTANCE.CGEventCreateMouseEvent(null, kCGEventMouseMoved, location, 0);
             CoreGraphics.INSTANCE.CGEventPost(0, move);
             CoreGraphics.INSTANCE.CFRelease(move);
@@ -112,7 +122,7 @@ public class NativeMacOSAPI {
         }
     }
 
-    private static void performLeftClick(CGPoint location) {
+    private static void performLeftClick(CGPoint.ByValue location) {
         Pointer mouseDown = CoreGraphics.INSTANCE.CGEventCreateMouseEvent(null, kCGEventLeftMouseDown, location, kCGMouseButtonLeft);
         Pointer mouseUp = CoreGraphics.INSTANCE.CGEventCreateMouseEvent(null, kCGEventLeftMouseUp, location, kCGMouseButtonLeft);
         CoreGraphics.INSTANCE.CGEventPost(0, mouseDown);
@@ -121,7 +131,7 @@ public class NativeMacOSAPI {
         CoreGraphics.INSTANCE.CFRelease(mouseUp);
     }
 
-    private static void performRightClick(CGPoint location) {
+    private static void performRightClick(CGPoint.ByValue location) {
         Pointer mouseDown = CoreGraphics.INSTANCE.CGEventCreateMouseEvent(null, kCGEventRightMouseDown, location, kCGMouseButtonRight);
         Pointer mouseUp = CoreGraphics.INSTANCE.CGEventCreateMouseEvent(null, kCGEventRightMouseUp, location, kCGMouseButtonRight);
         CoreGraphics.INSTANCE.CGEventPost(0, mouseDown);
@@ -130,7 +140,7 @@ public class NativeMacOSAPI {
         CoreGraphics.INSTANCE.CFRelease(mouseUp);
     }
 
-    private static void performScroll(CGPoint location, int direction) {
+    private static void performScroll(CGPoint.ByValue location, int direction) {
         Pointer scrollEvent = CoreGraphics.INSTANCE.CGEventCreateMouseEvent(null, kCGEventScrollWheel, location, 0);
         CoreGraphics.INSTANCE.CGEventPost(0, scrollEvent);
         CoreGraphics.INSTANCE.CFRelease(scrollEvent);
@@ -155,8 +165,7 @@ public class NativeMacOSAPI {
 
     public static boolean hasAccessibilityPermission() {
         try {
-            performMouseClick(0, 0, ClickType.LEFT);
-            return true;
+            return ApplicationServices.INSTANCE.AXIsProcessTrusted();
         } catch (Exception e) {
             logger.warn("Accessibility permission check failed: {}", e.getMessage());
             return false;

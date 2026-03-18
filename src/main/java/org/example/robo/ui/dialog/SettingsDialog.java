@@ -20,11 +20,9 @@ import org.slf4j.LoggerFactory;
 public class SettingsDialog extends Stage {
     private static final Logger logger = LoggerFactory.getLogger(SettingsDialog.class);
 
-    private final ConfigurationManager configurationManager;
     private final KeyboardListener keyboardListener;
 
     public SettingsDialog(ConfigurationManager configurationManager, KeyboardListener keyboardListener) {
-        this.configurationManager = configurationManager;
         this.keyboardListener = keyboardListener;
         initializeUI();
     }
@@ -38,50 +36,35 @@ public class SettingsDialog extends Stage {
 
         VBox root = new VBox(10);
         root.setPadding(new Insets(15));
+        root.getStyleClass().add("settings-root");
 
-        // Titel
         Label titleLabel = new Label("Application Settings");
-        titleLabel.setStyle("-fx-font-size: 16; -fx-font-weight: bold;");
+        titleLabel.getStyleClass().add("settings-title");
 
-        // Tab Pane
         TabPane tabPane = new TabPane();
         tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        tabPane.getStyleClass().add("settings-tabs");
+        tabPane.getTabs().addAll(createHotkeysTab(), createClickTypesTab(), createAdvancedTab());
 
-        // Hotkeys Tab
-        Tab hotkeysTab = createHotkeysTab();
-        tabPane.getTabs().add(hotkeysTab);
-
-        // Click Types Tab
-        Tab clickTypesTab = createClickTypesTab();
-        tabPane.getTabs().add(clickTypesTab);
-
-        // Advanced Tab
-        Tab advancedTab = createAdvancedTab();
-        tabPane.getTabs().add(advancedTab);
-
-        // Buttons
         HBox buttonBox = new HBox(10);
-        buttonBox.setStyle("-fx-alignment: center-right;");
+        buttonBox.getStyleClass().add("settings-button-bar");
 
         Button okButton = new Button("OK");
         okButton.setPrefWidth(100);
+        okButton.getStyleClass().add("settings-btn");
         okButton.setOnAction(e -> onOK());
 
         Button cancelButton = new Button("Cancel");
         cancelButton.setPrefWidth(100);
+        cancelButton.getStyleClass().add("settings-btn");
         cancelButton.setOnAction(e -> close());
 
         buttonBox.getChildren().addAll(cancelButton, okButton);
 
-        root.getChildren().addAll(
-                titleLabel,
-                new Separator(),
-                tabPane,
-                new Separator(),
-                buttonBox
-        );
+        root.getChildren().addAll(titleLabel, new Separator(), tabPane, new Separator(), buttonBox);
 
         Scene scene = new Scene(root);
+        scene.getStylesheets().add(getClass().getResource("/dark-theme.css").toExternalForm());
         setScene(scene);
     }
 
@@ -116,7 +99,6 @@ public class SettingsDialog extends Stage {
         content.setPadding(new Insets(15));
 
         Label descLabel = new Label("Default click type for profiles:");
-        descLabel.setStyle("-fx-font-size: 12;");
 
         ComboBox<ClickType> clickTypeCombo = new ComboBox<>();
         clickTypeCombo.getItems().addAll(ClickType.values());
@@ -128,7 +110,7 @@ public class SettingsDialog extends Stage {
                 "• RIGHT: Right-click (context menu)\n" +
                 "• SCROLL: Mouse scroll wheel"
         );
-        infoLabel.setStyle("-fx-font-size: 11; -fx-text-fill: #666;");
+        infoLabel.getStyleClass().add("settings-info-label");
 
         content.getChildren().addAll(descLabel, clickTypeCombo, new Separator(), infoLabel);
 
@@ -174,14 +156,14 @@ public class SettingsDialog extends Stage {
 
     private HBox createHotkeyRow(String label, String currentValue) {
         HBox box = new HBox(10);
-        box.setStyle("-fx-padding: 10; -fx-border-color: #ddd; -fx-border-radius: 3;");
+        box.getStyleClass().add("hotkey-row");
 
         Label labelControl = new Label(label);
         labelControl.setPrefWidth(120);
 
         Label valueLabel = new Label(currentValue);
         valueLabel.setPrefWidth(150);
-        valueLabel.setStyle("-fx-font-family: monospace;");
+        valueLabel.getStyleClass().add("hotkey-value");
 
         Button recordButton = new Button("Record");
         recordButton.setPrefWidth(100);

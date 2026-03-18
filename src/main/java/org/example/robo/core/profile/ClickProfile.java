@@ -10,15 +10,18 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Repräsentiert ein Click-Profil mit all seinen Konfigurationen.
+ * Repräsentiert einen Auto-Click-Eintrag mit all seinen Konfigurationen.
  */
 public class ClickProfile {
     private String id;
     private String name;
     private String description;
-    private int clickFrequency; // Hz (1-100)
+    private int clickFrequency; // Hz (1-100), verwendet wenn speedMode == FREQUENCY
+    private SpeedMode speedMode; // FREQUENCY oder INTERVAL
+    private int intervalSeconds; // Sekunden zwischen Klicks, verwendet wenn speedMode == INTERVAL
     private MousePosition position; // X, Y Koordinaten
     private ClickType clickType; // LEFT, RIGHT, SCROLL
+    private boolean enabled; // Checkbox-Status in der UI
     private int numberOfClicks; // -1 = unbegrenzt
     private long delayBetweenClicks; // ms
     private LocalDateTime createdAt;
@@ -33,18 +36,24 @@ public class ClickProfile {
             @JsonProperty("name") String name,
             @JsonProperty("description") String description,
             @JsonProperty("clickFrequency") int clickFrequency,
+            @JsonProperty("speedMode") SpeedMode speedMode,
+            @JsonProperty("intervalSeconds") int intervalSeconds,
             @JsonProperty("position") MousePosition position,
             @JsonProperty("clickType") ClickType clickType,
+            @JsonProperty("enabled") Boolean enabled,
             @JsonProperty("numberOfClicks") int numberOfClicks,
             @JsonProperty("delayBetweenClicks") long delayBetweenClicks,
             @JsonProperty("createdAt") LocalDateTime createdAt,
             @JsonProperty("lastModified") LocalDateTime lastModified) {
         this.id = id != null ? id : UUID.randomUUID().toString();
-        this.name = name != null ? name : "Unnamed Profile";
+        this.name = name != null ? name : "MACRobo";
         this.description = description != null ? description : "";
         this.clickFrequency = clickFrequency > 0 ? clickFrequency : Constants.DEFAULT_FREQUENCY_HZ;
+        this.speedMode = speedMode != null ? speedMode : SpeedMode.FREQUENCY;
+        this.intervalSeconds = intervalSeconds > 0 ? intervalSeconds : 1;
         this.position = position != null ? position : new MousePosition(Constants.DEFAULT_MOUSE_X, Constants.DEFAULT_MOUSE_Y);
         this.clickType = clickType != null ? clickType : ClickType.LEFT;
+        this.enabled = enabled != null ? enabled : true;
         this.numberOfClicks = numberOfClicks;
         this.delayBetweenClicks = delayBetweenClicks;
         this.createdAt = createdAt != null ? createdAt : LocalDateTime.now();
@@ -57,7 +66,7 @@ public class ClickProfile {
      * No-Argument Constructor für UI-basierte Profil-Erstellung.
      */
     public ClickProfile() {
-        this(null, null, null, 0, null, null, -1, 0, null, null);
+        this(null, null, null, 0, null, 0, null, null, true, -1, 0, null, null);
     }
 
     /**
@@ -66,13 +75,34 @@ public class ClickProfile {
     public static ClickProfile createDefault() {
         return new ClickProfile(
                 Constants.DEFAULT_PROFILE_ID,
-                "Default Profile",
-                "Standard Profil",
+                "MACRobo 1",
+                "",
                 Constants.DEFAULT_FREQUENCY_HZ,
+                SpeedMode.FREQUENCY,
+                1,
                 new MousePosition(Constants.DEFAULT_MOUSE_X, Constants.DEFAULT_MOUSE_Y),
                 ClickType.LEFT,
+                true,
                 -1,
                 Constants.DEFAULT_DELAY_MS,
+                LocalDateTime.now(),
+                LocalDateTime.now()
+        );
+    }
+
+    public static ClickProfile createNew(String name) {
+        return new ClickProfile(
+                null,
+                name,
+                "",
+                Constants.DEFAULT_FREQUENCY_HZ,
+                SpeedMode.FREQUENCY,
+                1,
+                new MousePosition(0, 0),
+                ClickType.LEFT,
+                true,
+                -1,
+                0,
                 LocalDateTime.now(),
                 LocalDateTime.now()
         );
@@ -138,6 +168,33 @@ public class ClickProfile {
     public void setClickFrequency(int clickFrequency) {
         this.clickFrequency = clickFrequency;
         validateProfile();
+        this.lastModified = LocalDateTime.now();
+    }
+
+    public SpeedMode getSpeedMode() {
+        return speedMode;
+    }
+
+    public void setSpeedMode(SpeedMode speedMode) {
+        this.speedMode = speedMode != null ? speedMode : SpeedMode.FREQUENCY;
+        this.lastModified = LocalDateTime.now();
+    }
+
+    public int getIntervalSeconds() {
+        return intervalSeconds;
+    }
+
+    public void setIntervalSeconds(int intervalSeconds) {
+        this.intervalSeconds = Math.max(1, intervalSeconds);
+        this.lastModified = LocalDateTime.now();
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
         this.lastModified = LocalDateTime.now();
     }
 
@@ -217,6 +274,19 @@ public class ClickProfile {
      * @return Interval in ms
      */
     public long getClickIntervalMs() {
+        if (speedMode == SpeedMode.INTERVAL) {
+            return (long) intervalSeconds * 1000;
+        }
         return 1000 / Math.max(1, clickFrequency);
+    }
+
+    /**
+     * Gibt die Anzeige-Beschriftung für das Speed-Feld zurück.
+     */
+    public String getSpeedDisplay() {
+        if (speedMode == SpeedMode.INTERVAL) {
+            return intervalSeconds + " sec click once";
+        }
+        return clickFrequency + " / sec";
     }
 }

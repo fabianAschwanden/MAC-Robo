@@ -1,6 +1,5 @@
 package org.example.robo.core.profile;
 
-import org.example.robo.core.profile.ClickType;
 import org.example.robo.util.MousePosition;
 
 /**

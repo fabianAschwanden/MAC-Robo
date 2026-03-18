@@ -1,28 +1,34 @@
 package org.example.robo.ui.dialog;
 
+import javafx.application.Platform;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.input.KeyCode;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import org.example.robo.core.input.HotkeyBinding;
-import org.example.robo.core.input.HotkeyRecordingCallback;
 import org.example.robo.core.input.KeyboardListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Dialog zum Aufzeichnen von Custom Hotkeys.
- * Benutzer drückt eine Tasten-Kombination und der Dialog erfasst diese.
+ * Dialog zum Aufzeichnen einer Tastenkombination.
+ * Verwendet JavaFX-eigene Key-Events – unabhängig vom MVP-Keyboard-Stub.
  */
 public class HotkeyRecorderDialog extends Stage {
     private static final Logger logger = LoggerFactory.getLogger(HotkeyRecorderDialog.class);
-    private static final long RECORDING_TIMEOUT = 5000; // 5 Sekunden
 
     private final KeyboardListener keyboardListener;
     private HotkeyBinding recordedHotkey;
     private boolean accepted = false;
+
+    // UI-Referenzen
+    private Label statusLabel;
+    private HBox buttonBox;
 
     public HotkeyRecorderDialog(KeyboardListener keyboardListener) {
         this.keyboardListener = keyboardListener;
@@ -30,132 +36,109 @@ public class HotkeyRecorderDialog extends Stage {
     }
 
     private void initializeUI() {
-        setTitle("Record Hotkey");
-        setWidth(400);
-        setHeight(200);
+        setTitle("Hotkey aufzeichnen");
+        setWidth(420);
+        setHeight(220);
         setResizable(false);
         initModality(Modality.APPLICATION_MODAL);
 
-        VBox root = new VBox(10);
-        root.setPadding(new Insets(20));
+        VBox root = new VBox(14);
+        root.setPadding(new Insets(24));
+        root.setAlignment(Pos.TOP_CENTER);
 
-        // Instruktion
-        Label instructionLabel = new Label("Press any key combination (within 5 seconds)");
-        instructionLabel.setStyle("-fx-font-size: 12; -fx-text-fill: #666;");
+        Label instruction = new Label("Drücke eine Tastenkombination …");
+        instruction.setStyle("-fx-font-size: 12;");
 
-        // Display für aufgezeichnete Taste
-        Label recordedLabel = new Label("Waiting for key...");
-        recordedLabel.setStyle("-fx-font-size: 16; -fx-font-weight: bold; -fx-text-fill: #0066cc;");
+        statusLabel = new Label("Warte auf Taste");
+        statusLabel.getStyleClass().add("hotkey-status-waiting");
+        statusLabel.setStyle("-fx-font-size: 16; -fx-font-weight: bold;");
 
-        // Buttons
-        Button cancelButton = new Button("Cancel");
-        cancelButton.setPrefWidth(100);
-        cancelButton.setOnAction(e -> onCancel());
+        buttonBox = new HBox(10);
+        buttonBox.setAlignment(Pos.CENTER_RIGHT);
 
-        // Button-Container
-        javafx.scene.layout.HBox buttonBox = new javafx.scene.layout.HBox(10);
-        buttonBox.setStyle("-fx-alignment: center-right;");
-        buttonBox.getChildren().add(cancelButton);
+        Button cancelBtn = new Button("Abbrechen");
+        cancelBtn.setPrefWidth(110);
+        cancelBtn.setOnAction(e -> onCancel());
+        buttonBox.getChildren().add(cancelBtn);
 
-        root.getChildren().addAll(
-                instructionLabel,
-                recordedLabel,
-                new Separator(),
-                buttonBox
-        );
+        root.getChildren().addAll(instruction, statusLabel, new Separator(), buttonBox);
 
         Scene scene = new Scene(root);
         setScene(scene);
 
-        // Starte Recording
-        startRecording(recordedLabel);
-
-        // Handle Close
-        setOnCloseRequest(e -> {
-            if (!accepted) {
+        // Tastaturaufnahme über JavaFX direkt
+        scene.setOnKeyPressed(event -> {
+            // Escape = Abbrechen
+            if (event.getCode() == KeyCode.ESCAPE) {
                 onCancel();
+                return;
             }
+            // Reine Modifier-Tasten (Shift, Ctrl, Alt, Cmd) ignorieren
+            if (event.getCode().isModifierKey()) return;
+
+            int keyCode   = event.getCode().getCode();
+            int modifiers = buildModifiers(event);
+
+            recordedHotkey = new HotkeyBinding(keyCode, modifiers, null);
+            logger.info("Hotkey aufgezeichnet: {}", recordedHotkey.getHotkeyString());
+
+            // Kein weiteres Event mehr aufnehmen
+            scene.setOnKeyPressed(null);
+
+            Platform.runLater(() -> showRecordedState());
         });
+
+        setOnCloseRequest(e -> { if (!accepted) onCancel(); });
     }
 
-    private void startRecording(Label recordedLabel) {
-        keyboardListener.startRecordingHotkey(RECORDING_TIMEOUT, binding -> {
-            javafx.application.Platform.runLater(() -> {
-                if (binding != null) {
-                    recordedHotkey = binding;
-                    recordedLabel.setText("Recorded: " + binding.getHotkeyString());
-                    recordedLabel.setStyle("-fx-font-size: 16; -fx-font-weight: bold; -fx-text-fill: #00aa00;");
+    // ─── Zustände ─────────────────────────────────────────────────────────────
 
-                    // Zeige Accept/Retry Buttons
-                    showAcceptButtons();
-                } else {
-                    recordedLabel.setText("Timeout - No key detected");
-                    recordedLabel.setStyle("-fx-font-size: 14; -fx-text-fill: #cc0000;");
-                    showRetryButton();
-                }
-            });
-        });
-    }
+    private void showRecordedState() {
+        statusLabel.setText("Aufgezeichnet:  " + recordedHotkey.getHotkeyString());
+        statusLabel.setStyle("-fx-font-size: 15; -fx-font-weight: bold; -fx-text-fill: #4caf50;");
 
-    private void showAcceptButtons() {
-        // Ersetze Cancel-Button mit Accept/Retry
-        javafx.scene.layout.HBox buttonBox = (javafx.scene.layout.HBox) getScene().getRoot()
-                .getChildrenUnmodifiable().stream()
-                .filter(n -> n instanceof javafx.scene.layout.HBox)
-                .findFirst()
-                .orElse(null);
+        buttonBox.getChildren().clear();
 
-        if (buttonBox != null) {
-            buttonBox.getChildren().clear();
+        Button retryBtn = new Button("Wiederholen");
+        retryBtn.setPrefWidth(110);
+        retryBtn.setOnAction(e -> onRetry());
 
-            Button acceptButton = new Button("Accept");
-            acceptButton.setPrefWidth(100);
-            acceptButton.setStyle("-fx-font-size: 12;");
-            acceptButton.setOnAction(e -> onAccept());
+        Button acceptBtn = new Button("Übernehmen");
+        acceptBtn.setPrefWidth(110);
+        acceptBtn.setOnAction(e -> onAccept());
+        acceptBtn.setDefaultButton(true);
 
-            Button retryButton = new Button("Retry");
-            retryButton.setPrefWidth(100);
-            retryButton.setOnAction(e -> onRetry());
-
-            buttonBox.getChildren().addAll(retryButton, acceptButton);
-        }
-    }
-
-    private void showRetryButton() {
-        javafx.scene.layout.HBox buttonBox = (javafx.scene.layout.HBox) getScene().getRoot()
-                .getChildrenUnmodifiable().stream()
-                .filter(n -> n instanceof javafx.scene.layout.HBox)
-                .findFirst()
-                .orElse(null);
-
-        if (buttonBox != null) {
-            buttonBox.getChildren().clear();
-
-            Button retryButton = new Button("Retry");
-            retryButton.setPrefWidth(100);
-            retryButton.setOnAction(e -> onRetry());
-
-            Button cancelButton = new Button("Cancel");
-            cancelButton.setPrefWidth(100);
-            cancelButton.setOnAction(e -> onCancel());
-
-            buttonBox.getChildren().addAll(cancelButton, retryButton);
-        }
-    }
-
-    private void onAccept() {
-        accepted = true;
-        logger.info("Hotkey recorded: {}", recordedHotkey);
-        close();
+        buttonBox.getChildren().addAll(retryBtn, acceptBtn);
     }
 
     private void onRetry() {
         recordedHotkey = null;
         accepted = false;
-        Label recordedLabel = (Label) getScene().getRoot().getChildrenUnmodifiable().get(1);
-        recordedLabel.setText("Waiting for key...");
-        recordedLabel.setStyle("-fx-font-size: 16; -fx-font-weight: bold; -fx-text-fill: #0066cc;");
-        startRecording(recordedLabel);
+        statusLabel.setText("Warte auf Taste");
+        statusLabel.setStyle("-fx-font-size: 16; -fx-font-weight: bold;");
+
+        buttonBox.getChildren().clear();
+        Button cancelBtn = new Button("Abbrechen");
+        cancelBtn.setPrefWidth(110);
+        cancelBtn.setOnAction(e -> onCancel());
+        buttonBox.getChildren().add(cancelBtn);
+
+        // Aufnahme neu starten
+        getScene().setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.ESCAPE) { onCancel(); return; }
+            if (event.getCode().isModifierKey()) return;
+
+            int keyCode   = event.getCode().getCode();
+            int modifiers = buildModifiers(event);
+            recordedHotkey = new HotkeyBinding(keyCode, modifiers, null);
+            getScene().setOnKeyPressed(null);
+            Platform.runLater(() -> showRecordedState());
+        });
+    }
+
+    private void onAccept() {
+        accepted = true;
+        close();
     }
 
     private void onCancel() {
@@ -165,18 +148,20 @@ public class HotkeyRecorderDialog extends Stage {
         close();
     }
 
-    /**
-     * Gibt die aufgezeichnete Hotkey-Bindung zurück, oder null wenn abgebrochen.
-     */
-    public HotkeyBinding getRecordedHotkey() {
-        return recordedHotkey;
+    // ─── Helpers ──────────────────────────────────────────────────────────────
+
+    /** Baut einen Modifier-Bitmask aus dem JavaFX KeyEvent (AWT-kompatibel). */
+    private static int buildModifiers(javafx.scene.input.KeyEvent event) {
+        int mod = 0;
+        if (event.isShiftDown())   mod |= java.awt.event.InputEvent.SHIFT_DOWN_MASK;
+        if (event.isControlDown()) mod |= java.awt.event.InputEvent.CTRL_DOWN_MASK;
+        if (event.isAltDown())     mod |= java.awt.event.InputEvent.ALT_DOWN_MASK;
+        if (event.isMetaDown())    mod |= java.awt.event.InputEvent.META_DOWN_MASK;
+        return mod;
     }
 
-    /**
-     * Gibt an, ob der Dialog erfolgreich akzeptiert wurde.
-     */
-    public boolean isAccepted() {
-        return accepted;
-    }
+    // ─── Public API ───────────────────────────────────────────────────────────
+
+    public HotkeyBinding getRecordedHotkey() { return recordedHotkey; }
+    public boolean isAccepted()              { return accepted; }
 }
-

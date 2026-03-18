@@ -6,50 +6,190 @@ import org.example.robo.config.ConfigurationManager;
 import org.example.robo.core.input.KeyboardEventListener;
 import org.example.robo.core.input.HotkeyAction;
 import org.example.robo.core.input.KeyboardListener;
+import org.example.robo.core.input.HotkeyBinding;
 import org.example.robo.core.profile.ClickProfile;
+import org.example.robo.core.profile.ClickType;
+import org.example.robo.core.profile.RobustSelector;
+import org.example.robo.core.profile.SpeedMode;
+import org.example.robo.core.profile.WebEventType;
+import org.example.robo.core.profile.WebRecordingStep;
+import org.example.robo.core.capture.CaptureEvent;
+import org.example.robo.core.capture.CaptureServer;
+import org.example.robo.util.Constants;
 import org.example.robo.util.MousePosition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
+import javafx.application.Platform;
+
 /**
  * Controller für die UI und Verbindung zur Business Logic.
- * Verwendet das MVC-Pattern zur Entkopplung von UI und Logik.
  */
 public class UIController implements ClickEngineListener, KeyboardEventListener {
     private static final Logger logger = LoggerFactory.getLogger(UIController.class);
 
     private final ClickEngine clickEngine;
     private final KeyboardListener keyboardListener;
+    private final ConfigurationManager configurationManager;
     private MainWindowFX mainWindow;
+
     private final org.example.robo.core.engine.MacroRecorder macroRecorder;
     private final org.example.robo.core.engine.MacroPlayer macroPlayer;
-    private final ConfigurationManager configurationManager;
+    private final org.example.robo.core.engine.WebMacroRecorderImpl webMacroRecorder;
+    private CaptureServer captureServer;
 
-    /**
-     * Erstellt einen neuen UIController.
-     *
-     * @param clickEngine die Click Engine
-     * @param keyboardListener der Keyboard Listener
-     */
-    public UIController(ClickEngine clickEngine, KeyboardListener keyboardListener, ConfigurationManager configurationManager) {
+    public UIController(ClickEngine clickEngine, KeyboardListener keyboardListener,
+                        ConfigurationManager configurationManager) {
         this.clickEngine = clickEngine;
         this.keyboardListener = keyboardListener;
-
-        // Erstelle einfache Recorder/Player
+        this.configurationManager = configurationManager;
         this.macroRecorder = new org.example.robo.core.engine.MacroRecorderImpl(clickEngine);
         this.macroPlayer = new org.example.robo.core.engine.MacroPlayerImpl();
-        this.configurationManager = configurationManager;
+        this.webMacroRecorder = new org.example.robo.core.engine.WebMacroRecorderImpl();
 
-        // Registriere als Listener
         this.clickEngine.addClickEngineListener(this);
         this.keyboardListener.addKeyboardEventListener(this);
 
         logger.info("UIController initialized");
     }
 
-    // Recorder/Player API für UI
+    public void setMainWindow(MainWindowFX mainWindow) {
+        this.mainWindow = mainWindow;
+    }
+
+    // ===== Multi-Profile Klick-Steuerung =====
+
+    /**
+     * Startet alle aktivierten Profile oder stoppt alle laufenden.
+     */
+    public void toggleClicking(List<ClickProfile> profiles) {
+        if (clickEngine.isRunning()) {
+            clickEngine.stopClicking();
+        } else {
+            List<ClickProfile> enabled = profiles.stream()
+                    .filter(ClickProfile::isEnabled)
+                    .toList();
+            if (enabled.isEmpty()) {
+                if (mainWindow != null) mainWindow.showError("Bitte mindestens einen Eintrag aktivieren.");
+                return;
+            }
+            clickEngine.startClicking(enabled);
+        }
+    }
+
+    /** Startet/stoppt ein einzelnes Profil. */
+    public void toggleClicking(ClickProfile profile) {
+        if (clickEngine.isRunning(profile.getId())) {
+            clickEngine.stopClicking(profile.getId());
+        } else {
+            clickEngine.startClicking(profile);
+        }
+    }
+
+    /** Stoppt alle laufenden Klicks. */
+    public void stopAll() {
+        clickEngine.stopClicking();
+    }
+
+    // ===== Profil / Eintrag Verwaltung =====
+
+    public void saveProfile(ClickProfile profile) {
+        configurationManager.saveProfile(profile);
+    }
+
+    public void deleteProfile(String profileId) {
+        clickEngine.stopClicking(profileId);
+        configurationManager.deleteProfile(profileId);
+    }
+
+    public List<ClickProfile> getAllProfiles() {
+        return configurationManager.getAllProfiles();
+    }
+
+    /**
+     * Setzt die Position eines Eintrags auf die aktuelle Mausposition.
+     */
+    public MousePosition captureAndSetPosition(ClickProfile profile) {
+        MousePosition pos = clickEngine.getCurrentMousePosition();
+        profile.setPosition(pos);
+        configurationManager.saveProfile(profile);
+        return pos;
+    }
+
+    /**
+     * Aktualisiert den enabled-Status und speichert.
+     */
+    public void setEntryEnabled(ClickProfile profile, boolean enabled) {
+        profile.setEnabled(enabled);
+        configurationManager.saveProfile(profile);
+    }
+
+    /**
+     * Aktualisiert den Klick-Typ und speichert.
+     */
+    public void setClickType(ClickProfile profile, ClickType type) {
+        profile.setClickType(type);
+        configurationManager.saveProfile(profile);
+    }
+
+    /**
+     * Parst und setzt den Speed-Wert eines Profils aus einem Anzeigestring wie "3 / sec" oder "4 sec click once".
+     */
+    public void setSpeed(ClickProfile profile, String speedText) {
+        if (speedText == null) return;
+        speedText = speedText.trim();
+        if (speedText.endsWith("/ sec") || speedText.endsWith("/sec")) {
+            try {
+                int hz = Integer.parseInt(speedText.replaceAll("[^0-9]", "").trim());
+                profile.setSpeedMode(SpeedMode.FREQUENCY);
+                profile.setClickFrequency(hz);
+            } catch (NumberFormatException ignored) {}
+        } else if (speedText.contains("sec click once")) {
+            try {
+                int secs = Integer.parseInt(speedText.replaceAll("[^0-9]", "").trim());
+                profile.setSpeedMode(SpeedMode.INTERVAL);
+                profile.setIntervalSeconds(secs);
+            } catch (NumberFormatException ignored) {}
+        } else {
+            try {
+                int hz = Integer.parseInt(speedText.trim());
+                profile.setSpeedMode(SpeedMode.FREQUENCY);
+                profile.setClickFrequency(hz);
+            } catch (NumberFormatException ignored) {}
+        }
+        configurationManager.saveProfile(profile);
+    }
+
+    // ===== Allgemeine Hilfsmethoden =====
+
+    public ConfigurationManager getConfigurationManager() {
+        return configurationManager;
+    }
+
+    public MousePosition getCurrentMousePosition() {
+        return clickEngine.getCurrentMousePosition();
+    }
+
+    public boolean isClickingActive() {
+        return clickEngine.isRunning();
+    }
+
+    public void setClickFrequency(int hz) {
+        clickEngine.setClickFrequency(hz);
+    }
+
+    public void setClickPosition(MousePosition position) {
+        clickEngine.setClickPosition(position);
+    }
+
+    public ClickProfile getCurrentProfile() {
+        return clickEngine.getCurrentProfile();
+    }
+
+    // ===== Macro API =====
+
     public void startRecording(String id, String name) {
         macroRecorder.startRecording(id, name);
     }
@@ -58,23 +198,12 @@ public class UIController implements ClickEngineListener, KeyboardEventListener 
         macroRecorder.stopRecording();
     }
 
-    /**
-     * Speichert das aktuelle Macro unter dem gegebenen Namen über den ConfigurationManager.
-     * Generiert eine ID wenn nötig.
-     */
     public void saveCurrentMacro(String name) {
         org.example.robo.core.profile.Macro m = macroRecorder.getCurrentMacro();
-        if (m == null) {
-            logger.warn("No macro to save");
-            return;
-        }
-        if (name == null || name.isBlank()) {
-            name = "Macro - " + System.currentTimeMillis();
-        }
+        if (m == null) return;
+        if (name == null || name.isBlank()) name = "Macro - " + System.currentTimeMillis();
         m.setName(name);
-        if (m.getId() == null || m.getId().isEmpty()) {
-            m.setId("macro-" + System.currentTimeMillis());
-        }
+        if (m.getId() == null || m.getId().isEmpty()) m.setId("macro-" + System.currentTimeMillis());
         configurationManager.saveMacro(m);
     }
 
@@ -82,15 +211,21 @@ public class UIController implements ClickEngineListener, KeyboardEventListener 
         return macroRecorder.isRecording();
     }
 
-    public org.example.robo.core.profile.Macro getCurrentMacro() {
-        return macroRecorder.getCurrentMacro();
+    public void recordMouseMove(MousePosition pos) {
+        if (macroRecorder instanceof org.example.robo.core.engine.MacroRecorderImpl rec) {
+            rec.recordMouseMove(pos);
+        }
+    }
+
+    public void recordMouseClick(MousePosition pos, ClickType type) {
+        if (macroRecorder instanceof org.example.robo.core.engine.MacroRecorderImpl rec) {
+            rec.recordMouseClick(pos, type);
+        }
     }
 
     public void playCurrentMacro() {
         org.example.robo.core.profile.Macro m = macroRecorder.getCurrentMacro();
-        if (m != null) {
-            macroPlayer.play(m);
-        }
+        if (m != null) macroPlayer.play(m);
     }
 
     public void stopMacroPlayback() {
@@ -101,154 +236,137 @@ public class UIController implements ClickEngineListener, KeyboardEventListener 
         return macroPlayer.isPlaying();
     }
 
-    // Recording helper methods (used by status updater)
-    public void recordMouseMove(MousePosition pos) {
-        if (macroRecorder instanceof org.example.robo.core.engine.MacroRecorderImpl rec) {
-            rec.recordMouseMove(pos);
-        }
-    }
-
-    public void recordMouseClick(MousePosition pos, org.example.robo.core.profile.ClickType type) {
-        if (macroRecorder instanceof org.example.robo.core.engine.MacroRecorderImpl rec) {
-            rec.recordMouseClick(pos, type);
-        }
-    }
-
-    /**
-     * Setzt das MainWindow (JavaFX).
-     *
-     * @param mainWindow das Hauptfenster
-     */
-    public void setMainWindow(MainWindowFX mainWindow) {
-        this.mainWindow = mainWindow;
-    }
-
-    // ===== Business Logic Methods (aufgerufen von UI) =====
-
-    /**
-     * Startet oder stoppt die Klick-Automatisierung.
-     *
-     * @param profile das zu verwendende Profil
-     */
-    public void toggleClicking(ClickProfile profile) {
-        if (clickEngine.isRunning()) {
-            clickEngine.stopClicking();
-        } else {
-            clickEngine.startClicking(profile);
-        }
-    }
-
-    /**
-     * Setzt die Klick-Frequenz.
-     *
-     * @param hz Frequenz in Hz
-     */
-    public void setClickFrequency(int hz) {
-        clickEngine.setClickFrequency(hz);
-    }
-
-    /**
-     * Setzt die Klick-Position.
-     *
-     * @param position neue Position
-     */
-    public void setClickPosition(MousePosition position) {
-        clickEngine.setClickPosition(position);
-    }
-
-    /**
-     * Gibt die aktuelle Mausposition zurück.
-     *
-     * @return aktuelle Mausposition
-     */
-    public MousePosition getCurrentMousePosition() {
-        return clickEngine.getCurrentMousePosition();
-    }
-
-    /**
-     * Gibt das aktuelle aktive Profil zurück.
-     *
-     * @return das aktive Profil
-     */
-    public ClickProfile getCurrentProfile() {
-        return clickEngine.getCurrentProfile();
-    }
-
-    /**
-     * Gibt an ob Klicks gerade aktiv sind.
-     *
-     * @return true wenn aktiv
-     */
-    public boolean isClickingActive() {
-        return clickEngine.isRunning();
-    }
-
-    // ===== ClickEngine Listener Implementation =====
+    // ===== ClickEngine Listener =====
 
     @Override
     public void onClickExecuted(MousePosition position) {
-        if (mainWindow != null) {
-            mainWindow.updateMousePosition(position);
-        }
+        // Position-Updates werden in MainWindowFX nicht mehr angezeigt (inline in Tabelle)
     }
 
     @Override
     public void onEngineStarted() {
-        logger.debug("Engine started - updating UI");
-        if (mainWindow != null) {
-            mainWindow.setEngineRunning(true);
-        }
+        logger.debug("Engine started");
+        if (mainWindow != null) mainWindow.setEngineRunning(true);
     }
 
     @Override
     public void onEngineStopped() {
-        logger.debug("Engine stopped - updating UI");
-        if (mainWindow != null) {
-            mainWindow.setEngineRunning(false);
-        }
+        logger.debug("Engine stopped");
+        if (mainWindow != null) mainWindow.setEngineRunning(false);
     }
 
     @Override
     public void onError(String errorMessage) {
         logger.error("Engine error: {}", errorMessage);
-        if (mainWindow != null) {
-            mainWindow.showError(errorMessage);
+        if (mainWindow != null) mainWindow.showError(errorMessage);
+    }
+
+    // ===== Web Capture Hotkey =====
+
+    private int webCaptureHotkeyCode = -1;
+
+    /**
+     * Registriert einen neuen Hotkey für Web Capture Toggle.
+     * Ein zuvor registrierter Hotkey wird zuerst entfernt.
+     */
+    public void setWebCaptureHotkey(HotkeyBinding binding) {
+        if (webCaptureHotkeyCode >= 0) {
+            keyboardListener.unregisterHotkey(webCaptureHotkeyCode);
+        }
+        webCaptureHotkeyCode = binding.getKeyCode();
+        keyboardListener.registerHotkey(webCaptureHotkeyCode, HotkeyAction.WEB_CAPTURE_TOGGLE);
+        logger.info("Web-Capture-Hotkey gesetzt: {}", binding.getHotkeyString());
+    }
+
+    public void clearWebCaptureHotkey() {
+        if (webCaptureHotkeyCode >= 0) {
+            keyboardListener.unregisterHotkey(webCaptureHotkeyCode);
+            webCaptureHotkeyCode = -1;
         }
     }
 
-    // ===== Keyboard Event Listener Implementation =====
+    // ===== Web Recording API =====
+
+    public void startWebRecording() {
+        String id = "web-" + System.currentTimeMillis();
+        webMacroRecorder.startRecording(id, "Web Capture " + id);
+        captureServer = new CaptureServer(Constants.CAPTURE_SERVER_PORT);
+        captureServer.addListener(this::onBrowserEvent);
+        try {
+            captureServer.start();
+        } catch (java.io.IOException e) {
+            logger.error("CaptureServer konnte nicht gestartet werden", e);
+            if (mainWindow != null) mainWindow.showError("Capture-Server Fehler (Port " + Constants.CAPTURE_SERVER_PORT + "): " + e.getMessage());
+        }
+    }
+
+    public void stopWebRecording() {
+        webMacroRecorder.stopRecording();
+        if (captureServer != null) {
+            captureServer.stop();
+            captureServer = null;
+        }
+    }
+
+    private void onBrowserEvent(CaptureEvent event) {
+        try {
+            WebEventType type = WebEventType.valueOf(event.eventType.toUpperCase());
+            RobustSelector selector = RobustSelector.of(event.cssSelector, event.xpath, event.textContent);
+            webMacroRecorder.recordStep(type, selector, event.payload);
+            if (mainWindow != null) {
+                Platform.runLater(mainWindow::onWebStepReceived);
+            }
+        } catch (IllegalArgumentException e) {
+            logger.warn("Unbekannter Browser-EventType: {}", event.eventType);
+        }
+    }
+
+    public boolean isCaptureServerRunning() {
+        return captureServer != null && captureServer.isRunning();
+    }
+
+    public int getCaptureServerPort() {
+        return Constants.CAPTURE_SERVER_PORT;
+    }
+
+    public boolean isWebRecording() {
+        return webMacroRecorder.isRecording();
+    }
+
+    public List<WebRecordingStep> getWebRecordedSteps() {
+        return webMacroRecorder.getRecordedSteps();
+    }
+
+    public void setWebIdleThreshold(long thresholdMs) {
+        webMacroRecorder.setIdleThresholdMs(thresholdMs);
+    }
+
+    public void recordWebStep(WebEventType eventType, RobustSelector selector, String payload) {
+        webMacroRecorder.recordStep(eventType, selector, payload);
+    }
+
+    public void clearWebRecording() {
+        webMacroRecorder.clearSteps();
+    }
+
+    // ===== Keyboard Listener =====
 
     @Override
     public void onHotkeyAction(HotkeyAction action) {
-        logger.debug("Hotkey action received: {}", action);
-
+        logger.debug("Hotkey action: {}", action);
         switch (action) {
-            case START_STOP -> {
-                ClickProfile profile = getCurrentProfile();
-                if (profile != null) {
-                    toggleClicking(profile);
-                }
-            }
-            case EMERGENCY_STOP -> {
-                clickEngine.stopClicking();
-                logger.info("Emergency stop triggered");
-            }
-            case NEXT_PROFILE -> {
-                if (mainWindow != null) {
-                    mainWindow.selectNextProfile();
-                }
-            }
+            case START_STOP -> toggleClicking(configurationManager.getAllProfiles());
+            case EMERGENCY_STOP -> stopAll();
+            case NEXT_PROFILE -> { /* nicht mehr relevant in neuer UI */ }
+            case WEB_CAPTURE_TOGGLE -> { if (mainWindow != null) mainWindow.triggerWebCaptureToggle(); }
         }
     }
 
     @Override
     public void onKeyboardEvent(int keyCode, int modifiers) {
-        // Wird für allgemeine Keyboard Events verwendet (Phase 2+)
+        // unused
     }
 
-    /**
-     * Shutdown - Cleanup
-     */
     public void shutdown() {
         clickEngine.removeClickEngineListener(this);
         keyboardListener.removeKeyboardEventListener(this);

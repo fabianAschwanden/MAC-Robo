@@ -2,7 +2,6 @@ package org.example.robo.core.engine;
 
 import org.example.robo.core.profile.ClickType;
 import org.example.robo.core.profile.Macro;
-import org.example.robo.core.profile.MacroEvent;
 import org.example.robo.core.profile.MouseClickEvent;
 import org.example.robo.core.profile.MouseMoveEvent;
 import org.example.robo.util.MousePosition;
@@ -10,7 +9,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.List;
 
 /**
  * Ein einfacher Recorder, der MouseMove und MouseClick Events sammelt.
@@ -24,10 +22,8 @@ public class MacroRecorderImpl implements MacroRecorder {
     private volatile boolean recording = false;
     private Macro currentMacro;
     private long recordingStartMs;
-    private final ClickEngine clickEngine;
 
     public MacroRecorderImpl(ClickEngine clickEngine) {
-        this.clickEngine = clickEngine;
     }
 
     @Override

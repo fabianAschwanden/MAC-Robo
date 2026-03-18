@@ -88,8 +88,9 @@ public class ProfileManagerDialog extends Stage {
         freqColumn.setCellValueFactory(new PropertyValueFactory<>("clickFrequency"));
         freqColumn.setPrefWidth(80);
 
-        profileTable.getColumns().addAll(nameColumn, descColumn, freqColumn);
-        profileTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        profileTable.getColumns().add(nameColumn);
+        profileTable.getColumns().add(descColumn);
+        profileTable.getColumns().add(freqColumn);
 
         // Selection Listener
         profileTable.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {

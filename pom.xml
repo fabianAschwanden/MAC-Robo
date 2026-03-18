@@ -154,7 +154,7 @@
                          <include>**/*Tests.java</include>
                      </includes>
                      <!-- module-path will be set to copied JavaFX jars directory -->
-                     <argLine>--module-path ${project.build.directory}/javafx-modules --add-modules javafx.controls,javafx.fxml,javafx.base,javafx.graphics</argLine>
+                     <argLine>@{argLine} --module-path ${project.build.directory}/javafx-modules --add-modules javafx.controls,javafx.fxml,javafx.base,javafx.graphics</argLine>
                  </configuration>
              </plugin>
 
@@ -206,16 +206,30 @@
                 </executions>
             </plugin>
 
-            <!-- Maven Exec Plugin für JavaFX -->
+            <!-- Maven Exec Plugin: App-Start (mvn exec:java) + Coverage Summary nach verify -->
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.0.0</version>
                 <configuration>
                     <mainClass>org.example.robo.Main</mainClass>
-                    <arguments>
-                    </arguments>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>coverage-summary</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>python3</executable>
+                            <arguments>
+                                <argument>${project.basedir}/scripts/coverage-report.py</argument>
+                                <argument>${project.build.directory}/site/jacoco/jacoco.xml</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
 
             <!-- JavaFX Maven Plugin: configures module-path and adds JavaFX modules for run/test -->
@@ -247,6 +261,27 @@
                                 </transformer>
                             </transformers>
                         </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- JaCoCo Plugin für Test Coverage -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.11</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>

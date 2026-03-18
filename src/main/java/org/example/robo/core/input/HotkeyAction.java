@@ -17,7 +17,12 @@ public enum HotkeyAction {
     /**
      * Wechselt zum nächsten Profil
      */
-    NEXT_PROFILE("Next Profile");
+    NEXT_PROFILE("Next Profile"),
+
+    /**
+     * Startet oder stoppt die Web-Capture-Aufzeichnung
+     */
+    WEB_CAPTURE_TOGGLE("Web Capture Toggle");
 
     private final String displayName;
 
