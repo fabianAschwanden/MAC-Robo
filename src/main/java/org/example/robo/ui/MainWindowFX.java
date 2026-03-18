@@ -123,6 +123,8 @@ public class MainWindowFX {
 
         if (showWebCapture) {
             sidebarWebCaptureBtn.getStyleClass().add("sidebar-btn-active");
+            sidebarAutoClickBtn.setGraphic(iconMouseFront(28, false));
+            sidebarWebCaptureBtn.setGraphic(iconBrowser(24, ICON_ACTIVE));
             // Layout-Pass erzwingen: TableView rendert nach initialem setVisible(false) ggf. nicht
             Platform.runLater(() -> {
                 if (webCapturePane instanceof javafx.scene.Parent p) p.requestLayout();
@@ -130,6 +132,8 @@ public class MainWindowFX {
             });
         } else {
             sidebarAutoClickBtn.getStyleClass().add("sidebar-btn-active");
+            sidebarAutoClickBtn.setGraphic(iconMouseFront(28, true));
+            sidebarWebCaptureBtn.setGraphic(iconBrowser(24, ICON_DEFAULT));
         }
     }
 
