@@ -184,6 +184,6 @@ browser-extension/
 
 ## Lizenz
 
-MIT License
+Dieses Projekt steht unter der [MIT License](LICENSE).
 
-**Autor:** Fabian Aschwanden – fabian.aschwanden@gmail.com
+Copyright (c) 2026 Fabian Aschwanden – fabian.aschwanden@gmail.com
