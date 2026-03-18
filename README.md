@@ -1,239 +1,189 @@
-# Click Roboter - macOS App (MVP Phase 1)
+# MACRobo - macOS Click Automation & Web Recorder
 
-Eine benutzerfreundliche macOS-Anwendung, die automatisierte Mausklicks mit konfigurierbarer Häufigkeit und Position durchführt. Perfekt für Gaming, Dateneingabe und Testing-Automatisierung.
+Eine macOS-Anwendung für automatisierte Mausklicks und Browser-Aktionsaufzeichnung mit Chrome-Extension-Integration.
 
-## 🚀 Features (Phase 1 MVP)
+## Features
 
-✅ **Click Automatisierung**
-- Automatische Mausklicks mit konfigurierbarer Frequenz (1-100 Hz)
-- Benutzerdefinierte Klick-Positionen (X, Y Koordinaten)
-- Mehrere voreingestellte Profile speichern
+**Click Automatisierung**
+- Automatische Mausklicks mit konfigurierbarer Frequenz (1–100 Hz) oder Intervall (z. B. alle 4 Sek.)
+- Feste oder dynamische Mausposition (aktuelle Position)
+- Mehrere Profile gleichzeitig aktiv
 
-✅ **Benutzer-Steuerung**
-- Start/Stop via Schaltfläche oder Hotkeys
-- Emergency Stop Taste für sofortigen Halt
-- Profil-Wechsel
+**Web Capture (Browser-Integration)**
+- Aufzeichnung von Klicks und Eingaben im Chrome-Browser
+- Echtzeit-Übertragung via lokalem HTTP-Server (Port 7890)
+- Smart Delay: überlange Pausen werden automatisch auf 500 ms gekürzt
+- Robuste Selektoren: CSS, XPath, Text-Content – mehrere Strategien parallel
 
-✅ **Status-Anzeige**
-- Live-Anzeige der aktuellen Mausposition
-- Status-Indikator (ACTIVE / STOPPED)
-- Frequenz-Anzeige
+**Profil- & Makro-Management**
+- Profile als JSON unter `~/.robo/profiles.json`
+- Web-Makros unter `~/.robo/web-macros.json`
+- Maus-Makros aufnehmen und abspielen
 
-✅ **Profil-Management**
-- Profile als JSON speichern/laden
-- Automatische Persistierung in `~/.robo/profiles.json`
+**Hotkeys (global, konfigurierbar)**
+- Start/Stop, Emergency Stop, Web Capture Toggle
 
-✅ **Recording & Playback (Neu)**
-- Aufnahme von Mausbewegungen und Klicks (RECORD Button)
-- Abspielen aufgezeichneter Makros (PLAY Button)
-- Capture-Click Funktion zum schnellen Aufnehmen eines Klicks
+---
 
-## 🛠 Systemanforderungen
+## Systemanforderungen
 
 - macOS 11.0 oder neuer
-- Java 17 Runtime
-- Accessibility-Berechtigung (für globale Hotkeys)
+- Java 21
+- Google Chrome (für Web Capture)
+- Accessibility-Berechtigung (Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen)
 
-## 📦 Installation
+---
 
-### Aus dem Quellcode bauen:
+## Installation & Start
 
 ```bash
-cd /Users/fabian/git/robo
+# Aus dem Quellcode bauen und starten
 mvn clean package
-java -jar target/robo-1.0-SNAPSHOT.jar
+mvn javafx:run
 ```
 
-## 🎮 Verwendung
+---
 
-### Hotkeys (Standard):
-- **F6**: Start/Stop Toggle
-- **F7**: Emergency Stop (sofortige Beendigung)
-- **F8**: Zum nächsten Profil wechseln
+## Web Capture – Einrichtung
 
-### Recording & Playback
-- RECORD: startet die Aufnahme von Mausbewegungen und Klicks
-- CAPTURE CLICK: nimmt die aktuelle Mausposition als Klick auf
-- PLAY: spielt das aktuell aufgenommene Macro ab
+Die Web-Capture-Funktion zeichnet Klicks und Tastatureingaben im Chrome-Browser auf und überträgt sie live in die App.
 
-### Erste Schritte:
+### Schritt 1: App starten
 
-1. App starten
-2. Standard Profile ist vorgespeichert (10 Hz, Position 500x400)
-3. Mausposition einstellen oder Auto-Detect verwenden
-4. Klick-Frequenz anpassen (1-100 Hz)
-5. "START" Button drücken oder F6 Hotkey verwenden
-6. "STOP" Button oder F7 zum Stoppen
+```bash
+mvn javafx:run
+```
 
-## 📋 Projektstruktur
+### Schritt 2: Chrome Extension laden
+
+1. Chrome öffnen und zu `chrome://extensions` navigieren
+2. Oben rechts **Entwicklermodus** aktivieren
+3. **"Entpackte Erweiterung laden"** klicken
+4. Den Ordner `browser-extension/` im Projektverzeichnis auswählen
+5. Die Extension "MACRobo Web Capture" erscheint in der Liste
+
+### Schritt 3: Aufzeichnung starten
+
+1. In der App auf das **Browser-Icon** in der linken Seitenleiste klicken → Web Capture Panel öffnet sich
+2. **"Aufzeichnung starten"** klicken
+   - Der eingebettete HTTP-Server startet auf `localhost:7890`
+   - Status wechselt zu: `● Server aktiv – localhost:7890`
+3. Im Chrome-Browser zur Ziel-Webseite navigieren
+4. Die Extension zeigt einen **grünen Punkt** wenn die Verbindung aktiv ist
+
+### Schritt 4: Aktionen aufzeichnen
+
+Alle folgenden Aktionen auf der Webseite werden automatisch erfasst:
+
+| Aktion | Aufgezeichnet als |
+|--------|-------------------|
+| Klick auf Link, Button, Input | `CLICK` |
+| Text in Eingabefeld eingeben | `TYPE` (mit Wert) |
+
+Jede Aktion erscheint sofort als neue Zeile in der Tabelle in der App.
+
+### Schritt 5: Aufzeichnung stoppen
+
+**"Aufzeichnung stoppen"** in der App klicken. Alle aufgezeichneten Schritte bleiben in der Tabelle sichtbar.
+
+---
+
+## Web Capture – Konfiguration
+
+| Option | Beschreibung | Standard |
+|--------|-------------|---------|
+| Idle-Threshold | Pausen länger als dieser Wert werden auf 500 ms gekürzt | 2000 ms |
+| Capture-Hotkey | Globaler Hotkey zum Starten/Stoppen der Aufzeichnung | – |
+
+**Hotkey konfigurieren:**
+1. Im Web Capture Panel auf **"Hotkey setzen"** klicken
+2. Gewünschte Taste drücken
+3. Hotkey wird global registriert – funktioniert auch wenn die App im Hintergrund ist
+
+---
+
+## Tabellen-Spalten (Web Capture)
+
+| Spalte | Bedeutung |
+|--------|-----------|
+| # | Laufende Schritt-Nummer |
+| Typ | Aktionstyp: CLICK, TYPE, HOVER, NAVIGATE, WAIT |
+| Selektor | Primärer CSS-Selektor des Elements |
+| Payload | Bei TYPE: eingegebener Text; sonst leer |
+| Timing | Pause vor diesem Schritt in ms |
+| Delay | HARD = feste Zeit; SMART = warten auf Element (orange) |
+
+---
+
+## Hotkeys (Standard)
+
+| Hotkey | Aktion |
+|--------|--------|
+| F7 | Emergency Stop (alle Klicks sofort stoppen) |
+| Konfigurierbar | Start/Stop Toggle |
+| Konfigurierbar | Web Capture Toggle |
+
+---
+
+## Troubleshooting
+
+**Extension-Popup zeigt roten Punkt ("Nicht verbunden")**
+- Sicherstellen, dass in der App die Aufzeichnung gestartet wurde
+- Der Server läuft nur während einer aktiven Aufzeichnung
+- Popup schließen und wieder öffnen
+
+**Keine Schritte werden aufgezeichnet**
+- Prüfen ob der Status in der App `● Server aktiv` zeigt
+- Sicherstellen, dass die Extension auf der Ziel-Seite aktiv ist (kein `chrome://`-Tab)
+- Logs prüfen: `~/.robo/logs/robo.log`
+
+**Hotkeys funktionieren nicht**
+- Accessibility-Berechtigung prüfen:
+  Systemeinstellungen → Datenschutz & Sicherheit → Bedienungshilfen → App hinzufügen
+
+**App startet nicht**
+```bash
+java -version   # muss Java 21 zeigen
+```
+
+---
+
+## Projektstruktur
 
 ```
 src/main/java/org/example/robo/
 ├── core/
-│   ├── engine/        # ClickEngine, Timing, Native APIs
+│   ├── engine/        # ClickEngine, MacroRecorder, WebMacroRecorder
 │   ├── input/         # Keyboard Listener, Hotkeys
-│   └── profile/       # ClickProfile, ClickType Datenmodelle
-├── config/            # ConfigurationManager, JSON Persistierung
-├── ui/                # Swing GUI, MainWindow, UIController
-├── service/           # ApplicationService (Singleton)
-├── util/              # Constants, Utilities
-└── Main.java          # Entry Point
+│   ├── profile/       # Datenmodelle: ClickProfile, WebRecordingStep, RobustSelector
+│   └── capture/       # CaptureServer (HTTP), CaptureEvent
+├── config/            # ConfigurationManager, JSON-Persistierung
+├── ui/                # JavaFX MainWindow, UIController, Dialoge
+├── util/              # Constants
+└── Main.java
+
+browser-extension/
+├── manifest.json      # Chrome Extension MV3
+├── content.js         # Klick-/Eingabe-Listener, sendet an localhost:7890
+├── popup.html         # Extension-Popup mit Verbindungsstatus
+├── popup.js
+└── background.js
 ```
-
-## 🧪 Testing
-
-```bash
-# Unit Tests ausführen
-mvn test
-
-# Tests überspringen und nur bauen
-mvn package -DskipTests
-```
-
-**Test Coverage:**
-- ✅ ClickProfile Validierung
-- ✅ TimingController Berechnungen
-- ✅ MousePosition Utility
-- ✅ ConfigurationManager Persistierung
-
-## 🔧 Konfiguration
-
-Profile werden in JSON speichert unter `~/.robo/profiles.json`:
-
-```json
-{
-  "lastUsedProfileId": "default",
-  "profiles": [
-    {
-      "id": "default",
-      "name": "Default Profile",
-      "clickFrequency": 10,
-      "position": {
-        "x": 500,
-        "y": 400
-      },
-      "clickType": "LEFT",
-      "numberOfClicks": -1,
-      "delayBetweenClicks": 0
-    }
-  ]
-}
-```
-
-## 📊 Logging
-
-Logs werden gespeichert in `~/.robo/logs/robo.log`
-
-Log-Level im Code einstellbar via `src/main/resources/logback.xml`
-
-## 🐛 Bekannte Limitierungen (MVP Phase 1)
-
-- Globale Hotkeys benötigen Accessibility-Berechtigung
-- Keine Custom Hotkey Konfiguration (wird in Phase 2 hinzugefügt)
-- Keine Menu Bar Integration (Phase 2)
-- Keine Settings Dialog (Phase 2)
-- Nur einfache UI ohne erweiterte Optionen
-
-## 🚧 Roadmap
-
-### Phase 2: Enhancement
-- [ ] Menu Bar Integration mit Status-Icon
-- [ ] Settings Dialog (Frequenz-Slider, Position-Picker)
-- [ ] Tastenkombinations-Recorder
-- [ ] Advanced Profile Manager
-- [ ] Verschiedene Click-Typen (Right, Scroll)
-
-### Phase 3: Advanced
-- [ ] Click-Sequenzen/Makros
-- [ ] Recording & Playback
-- [ ] Statistiken & Logging
-- [ ] Dark Mode
-
-### Phase 4: Distribution
-- [ ] Code Signing & Notarization
-- [ ] DMG Installer
-- [ ] Dokumentation
-- [ ] Performance Optimierung
-
-## 📝 Entwicklung nach Spec-Driven Development
-
-Diese App wurde anhand einer detaillierten Specification entwickelt. Siehe `SPEC.md` für:
-
-- Funktionale Requirements (REQ-F001 bis REQ-F015)
-- UI/UX Requirements (REQ-U001 bis REQ-U013)
-- Non-Functional Requirements (REQ-N001 bis REQ-N013)
-- Benutzerflüsse und User Stories
-- Systemarchitektur
-- API Spezifikation
-
-## 🏗 Architektur
-
-Das Projekt folgt einer layered architecture:
-
-```
-┌─────────────────────┐
-│   UI Layer (Swing)  │
-├─────────────────────┤
-│  UI Controller      │
-├─────────────────────┤
-│ Application Service │
-├─────────────────────┤
-│ ClickEngine │ Config│
-├─────────────────────┤
-│  Keyboard Input     │
-├─────────────────────┤
-│ macOS Native APIs   │
-└─────────────────────┘
-```
-
-## 🔐 Sicherheit & Datenschutz
-
-- ✅ Keine externe Datenübertragung
-- ✅ Konfigurationen lokal in `~/.robo/` gespeichert
-- ✅ Accessibility-Berechtigung obligatorisch
-- ✅ Open Source (inspizierbar)
-
-## 💡 Tipps & Tricks
-
-**Häufig benötigte Frequenzen:**
-- Gaming (Auto-Clicker): 10-20 Hz
-- Data Entry: 2-5 Hz
-- Test Automation: 1-3 Hz
-
-**Mausposition finden:**
-- Bewegen Sie die Maus zur gewünschten Position
-- Position wird live in der App angezeigt
-- Klick-Button drücken um zu übernehmen
-
-## 🐛 Troubleshooting
-
-**Hotkeys funktionieren nicht:**
-1. Prüfe Accessibility-Berechtigung:
-   - Systemeinstellungen → Sicherheit & Datenschutz → Barrierefreiheit
-   - Füge "Click Roboter" zur Liste hinzu
-
-**Klicks finden nicht statt:**
-1. Überprüfe ob Accessibility-Berechtigung erteilt ist
-2. Prüfe ob Mausposition korrekt eingestellt ist
-3. Logs in `~/.robo/logs/robo.log` überprüfen
-
-**App startet nicht:**
-1. Java 17+ muss installiert sein
-2. `java -version` zum Überprüfen
-
-## 📄 Lizenz
-
-MIT License - Siehe LICENSE Datei
-
-## 👨‍💻 Autor
-
-@Fabian Aschwanden fabian.aschwanden@gmail.com
-
-**Erstellungsdatum:** 17. Februar 2026  
-**App-Version:** 1.0 (MVP)  
-**Status:** Production Ready für Phase 1
 
 ---
 
-**Für Fragen oder Issues:** Siehe SPEC.md für detaillierte Dokumentation
+## Konfigurationsdateien
 
+| Datei | Inhalt |
+|-------|--------|
+| `~/.robo/profiles.json` | Click-Profile (Frequenz, Position, Typ) |
+| `~/.robo/web-macros.json` | Aufgezeichnete Web-Makros |
+| `~/.robo/logs/robo.log` | Anwendungs-Logs |
+
+---
+
+## Lizenz
+
+MIT License
+
+**Autor:** Fabian Aschwanden – fabian.aschwanden@gmail.com
