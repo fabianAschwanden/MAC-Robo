@@ -124,6 +124,20 @@
             <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
+
+        <!-- TestFX für JavaFX UI-Tests -->
+        <dependency>
+            <groupId>org.testfx</groupId>
+            <artifactId>testfx-core</artifactId>
+            <version>4.0.18</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testfx</groupId>
+            <artifactId>testfx-junit5</artifactId>
+            <version>4.0.18</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -154,7 +168,7 @@
                          <include>**/*Tests.java</include>
                      </includes>
                      <!-- module-path will be set to copied JavaFX jars directory -->
-                     <argLine>@{argLine} --module-path ${project.build.directory}/javafx-modules --add-modules javafx.controls,javafx.fxml,javafx.base,javafx.graphics</argLine>
+                     <argLine>@{argLine} --module-path ${project.build.directory}/javafx-modules --add-modules javafx.controls,javafx.fxml,javafx.base,javafx.graphics --add-opens javafx.graphics/com.sun.javafx.application=ALL-UNNAMED --add-opens javafx.graphics/com.sun.glass.ui=ALL-UNNAMED --add-opens javafx.base/com.sun.javafx.runtime=ALL-UNNAMED</argLine>
                  </configuration>
              </plugin>
 
