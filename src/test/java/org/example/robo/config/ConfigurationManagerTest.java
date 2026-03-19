@@ -13,16 +13,21 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Unit Tests für ConfigurationManager.
+ * Jeder Test arbeitet in einem isolierten Temp-Verzeichnis (ACID-konform).
+ * Es werden keine echten Benutzerdaten (~/.robo/) berührt.
  */
 class ConfigurationManagerTest {
+
+    @TempDir
+    Path tempDir;
 
     private ConfigurationManager configManager;
 
     @BeforeEach
-    void setUp(@TempDir Path tempDir) {
-        // Hinweis: Die echte Implementation verwendet ~/.robo/
-        // Für Tests müssen wir ein Mock oder Temp-Dir verwenden
-        configManager = new ConfigurationManagerImpl();
+    void setUp() {
+        Path configDir  = tempDir.resolve("config");
+        Path configFile = configDir.resolve("profiles.json");
+        configManager = new ConfigurationManagerImpl(configDir, configFile);
     }
 
     @Test
@@ -34,14 +39,15 @@ class ConfigurationManagerTest {
         ClickProfile loaded = configManager.loadProfile(profile.getId());
 
         assertNotNull(loaded);
-        assertEquals(profile.getName(), loaded.getName());
+        assertEquals("Test Profile", loaded.getName());
     }
 
     @Test
-    void testGetAllProfiles() {
+    void testGetAllProfilesContainsDefault() {
         List<ClickProfile> profiles = configManager.getAllProfiles();
         assertNotNull(profiles);
-        assertTrue(profiles.size() > 0);
+        assertEquals(1, profiles.size(), "Neues Config-Verzeichnis enthält genau das Default-Profil");
+        assertEquals(Constants.DEFAULT_PROFILE_ID, profiles.get(0).getId());
     }
 
     @Test
@@ -63,21 +69,9 @@ class ConfigurationManagerTest {
 
     @Test
     void testDeleteProfile() {
-        ClickProfile profile = new ClickProfile(
-                "delete-test-123",
-                "To Delete",
-                "",
-                10,
-                null,
-                0,
-                null,
-                null,
-                true,
-                -1,
-                0,
-                null,
-                null
-        );
+        ClickProfile profile = ClickProfile.createDefault();
+        profile.setId("delete-test-123");
+        profile.setName("To Delete");
 
         configManager.saveProfile(profile);
         assertNotNull(configManager.loadProfile("delete-test-123"));
@@ -86,4 +80,3 @@ class ConfigurationManagerTest {
         assertNull(configManager.loadProfile("delete-test-123"));
     }
 }
-

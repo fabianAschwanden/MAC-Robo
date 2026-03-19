@@ -30,22 +30,29 @@ public class ConfigurationManagerImpl implements ConfigurationManager {
     private ProfileConfiguration currentConfig;
 
     /**
-     * Erstellt einen neuen ConfigurationManager.
+     * Erstellt einen neuen ConfigurationManager mit den Standard-Pfaden (~/.robo/).
      */
     public ConfigurationManagerImpl() {
+        this(Paths.get(Constants.CONFIG_DIR), Paths.get(Constants.PROFILES_FILE));
+    }
+
+    /**
+     * Erstellt einen ConfigurationManager mit einem benutzerdefinierten Konfigurationspfad.
+     * Wird für Tests verwendet, damit keine echten Benutzerdaten berührt werden.
+     *
+     * @param configDir  Verzeichnis für die Konfigurationsdateien
+     * @param configFile Pfad zur Profil-JSON-Datei
+     */
+    ConfigurationManagerImpl(Path configDir, Path configFile) {
         this.objectMapper = new ObjectMapper();
-        // Ignoriere unbekannte Felder in älteren Konfigurationsdateien
         this.objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         this.objectMapper.registerModule(new JavaTimeModule());
         this.objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
 
-        this.configDir = Paths.get(Constants.CONFIG_DIR);
-        this.configFile = Paths.get(Constants.PROFILES_FILE);
+        this.configDir = configDir;
+        this.configFile = configFile;
 
-        // Erstelle Config-Verzeichnis falls nicht vorhanden
         ensureConfigDirectory();
-
-        // Lade existierende Konfiguration oder erstelle neue
         loadConfiguration();
 
         logger.info("ConfigurationManager initialized with config file: {}", configFile);
