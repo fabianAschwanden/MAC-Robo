@@ -23,7 +23,7 @@
     </appender>
 
     <!-- Logger Konfiguration -->
-    <logger name="org.example.robo" level="DEBUG"/>
+    <logger name="ch.aschwanden.robo" level="DEBUG"/>
     <logger name="org.jnativehook" level="INFO"/>
 
     <!-- Root Logger -->

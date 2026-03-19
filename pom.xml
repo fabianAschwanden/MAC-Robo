@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.example</groupId>
+    <groupId>ch.aschwanden</groupId>
     <artifactId>robo</artifactId>
     <version>1.0-SNAPSHOT</version>
 
@@ -226,7 +226,7 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.0.0</version>
                 <configuration>
-                    <mainClass>org.example.robo.Main</mainClass>
+                    <mainClass>ch.aschwanden.robo.Main</mainClass>
                 </configuration>
                 <executions>
                     <execution>
@@ -252,7 +252,7 @@
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>
                 <configuration>
-                    <mainClass>org.example.robo.Main</mainClass>
+                    <mainClass>ch.aschwanden.robo.Main</mainClass>
                     <javafxPlatform>${javafx.platform}</javafxPlatform>
                 </configuration>
             </plugin>
@@ -271,7 +271,7 @@
                         <configuration>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>org.example.robo.Main</mainClass>
+                                    <mainClass>ch.aschwanden.robo.Main</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>
