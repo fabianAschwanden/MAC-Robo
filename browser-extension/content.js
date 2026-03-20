@@ -1,13 +1,25 @@
 // Robo Web Capture – Content Script
-const SERVER_URL = 'http://localhost:7890';
+const SERVER_URL = 'http://127.0.0.1:7890';
 let isRecording = false;
 let lastEventTime = Date.now();
 
+// Route fetch through background service worker to bypass CORS restrictions
+function bgFetch(url, options = {}) {
+    return new Promise((resolve, reject) => {
+        chrome.runtime.sendMessage({ type: 'fetch', url, options }, response => {
+            if (chrome.runtime.lastError) { reject(new Error(chrome.runtime.lastError.message)); return; }
+            resolve(response || { ok: false });
+        });
+    });
+}
+
 async function checkStatus() {
     try {
-        const resp = await fetch(`${SERVER_URL}/status`, { signal: AbortSignal.timeout(1000) });
+        const resp = await bgFetch(`${SERVER_URL}/status`);
         isRecording = resp.ok;
-    } catch {
+        console.log('[MACRobo] Status:', isRecording ? 'connected ✓' : 'disconnected');
+    } catch (e) {
+        console.warn('[MACRobo] Status-Check fehlgeschlagen:', e.message);
         isRecording = false;
     }
 }
@@ -57,7 +69,7 @@ async function sendEvent(type, el, payload = null) {
     lastEventTime = now;
     const text = (el.innerText || el.value || el.getAttribute('aria-label') || '').trim().substring(0, 80) || null;
     try {
-        await fetch(`${SERVER_URL}/capture`, {
+        await bgFetch(`${SERVER_URL}/capture`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -68,11 +80,10 @@ async function sendEvent(type, el, payload = null) {
                 payload: payload,
                 timingMs: timing,
                 url: window.location.href
-            }),
-            signal: AbortSignal.timeout(2000)
+            })
         });
     } catch (e) {
-        // Server not reachable – recording likely stopped
+        console.warn('[MACRobo] Event senden fehlgeschlagen:', e.message);
         isRecording = false;
     }
 }
@@ -91,6 +102,7 @@ document.addEventListener('change', e => {
     }
 }, true);
 
+console.log('[MACRobo] Content Script geladen, Server:', SERVER_URL);
 // Poll recording status every 2 seconds
 setInterval(checkStatus, 2000);
 checkStatus();

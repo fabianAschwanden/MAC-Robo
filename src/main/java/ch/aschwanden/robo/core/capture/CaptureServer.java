@@ -38,7 +38,7 @@ public class CaptureServer {
     }
 
     public void start() throws IOException {
-        server = HttpServer.create(new InetSocketAddress("127.0.0.1", port), 0);
+        server = HttpServer.create(new InetSocketAddress(port), 0);
         server.createContext("/capture", this::handleCapture);
         server.createContext("/status",  this::handleStatus);
         server.setExecutor(Executors.newCachedThreadPool(r -> {
@@ -71,6 +71,7 @@ public class CaptureServer {
     // ── Handlers ──────────────────────────────────────────────────────────────
 
     private void handleCapture(HttpExchange exchange) throws IOException {
+        logger.debug("[capture] {} from {}", exchange.getRequestMethod(), exchange.getRemoteAddress());
         addCorsHeaders(exchange);
 
         if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
@@ -102,6 +103,7 @@ public class CaptureServer {
     }
 
     private void handleStatus(HttpExchange exchange) throws IOException {
+        logger.debug("[status] {} from {}", exchange.getRequestMethod(), exchange.getRemoteAddress());
         addCorsHeaders(exchange);
 
         if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
@@ -119,6 +121,7 @@ public class CaptureServer {
         exchange.getResponseHeaders().set("Access-Control-Allow-Origin",  "*");
         exchange.getResponseHeaders().set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         exchange.getResponseHeaders().set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+        exchange.getResponseHeaders().set("Access-Control-Allow-Private-Network", "true");
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
     }
 
