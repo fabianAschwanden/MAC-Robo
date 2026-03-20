@@ -1,4 +1,4 @@
-const SERVER_URL = 'http://localhost:7890';
+const SERVER_URL = 'http://127.0.0.1:7890';
 
 async function updateStatus() {
     const dot = document.getElementById('dot');

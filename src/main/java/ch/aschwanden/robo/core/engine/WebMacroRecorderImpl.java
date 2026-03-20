@@ -9,7 +9,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -96,8 +95,8 @@ public class WebMacroRecorderImpl implements WebMacroRecorder {
     }
 
     @Override
-    public List<WebRecordingStep> getRecordedSteps() {
-        return Collections.unmodifiableList(steps);
+    public synchronized List<WebRecordingStep> getRecordedSteps() {
+        return new ArrayList<>(steps);
     }
 
     @Override
